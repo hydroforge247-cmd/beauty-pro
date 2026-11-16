@@ -108,7 +108,10 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       c.loading = true;
       const s = scenes[i];
       // Chapters queue in order so the opening one gets the whole connection on a slow line.
-      if (mobile && s.frames) return void (frameQueue = frameQueue.then(() => loadFrames(c, s.frames!)));
+      frameQueue = frameQueue.then(() => (mobile && s.frames ? loadFrames(c, s.frames) : loadClip(c, s)));
+    }
+
+    async function loadClip(c: Clip, s: ScrollScrubScene) {
       try {
         const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip));
         if (!res.ok) throw new Error(String(res.status));
@@ -237,8 +240,8 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         c.visible = opacity > 0.001;
         c.layer.style.opacity = String(opacity);
         c.layer.style.zIndex = i === idx ? "2" : "1";
-        // Phone frames are light, so fetch every chapter up front; a quick thumb-flick would outrun lazy loading.
-        if (mobile || (y > c.start - 1.5 * vh && y < c.end + 1.5 * vh)) void load(i);
+        // Fetch every chapter up front, in order: lazy loading left later chapters on stills on slower lines.
+        void load(i);
       });
       if (idx !== shown) {
         shown = idx;
