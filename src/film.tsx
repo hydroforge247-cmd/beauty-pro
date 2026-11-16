@@ -82,6 +82,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     let layoutWidth = window.innerWidth;
     let userReady = false;
     let shown = -1;
+    let frameQueue: Promise<void> = Promise.resolve();
 
     const prime = (v?: HTMLVideoElement) => {
       if (v) v.play().then(() => v.pause()).catch(() => {});
@@ -105,7 +106,8 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       if (!c || reduced || destroyed || c.loading || c.ready) return;
       c.loading = true;
       const s = scenes[i];
-      if (mobile && s.frames) return loadFrames(c, s.frames);
+      // Chapters queue in order so the opening one gets the whole connection on a slow line.
+      if (mobile && s.frames) return void (frameQueue = frameQueue.then(() => loadFrames(c, s.frames!)));
       try {
         const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip));
         if (!res.ok) throw new Error(String(res.status));
