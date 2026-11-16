@@ -15,6 +15,9 @@ export interface ScrollScrubScene {
   /** Phones scrub still frames on a canvas instead of seeking video (seeking stutters on phones). */
   /** One file per chapter: uint32 LE count, count × uint32 LE lengths, then the WebP frames back to back. */
   frames?: string;
+  /** Light versions that load first on slow lines; the sharp clip/frames replace them. */
+  liteClip?: string;
+  liteFrames?: string;
   title: string;
   body: string;
   kicker?: string;
@@ -83,7 +86,6 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     let layoutWidth = window.innerWidth;
     let userReady = false;
     let shown = -1;
-    let frameQueue: Promise<void> = Promise.resolve();
 
     const prime = (v?: HTMLVideoElement) => {
       if (v) v.play().then(() => v.pause()).catch(() => {});
@@ -102,61 +104,87 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       dirty = true;
     }
 
-    async function load(i: number) {
-      const c = clips[i];
-      if (!c || reduced || destroyed || c.loading || c.ready) return;
-      c.loading = true;
-      const s = scenes[i];
-      // Chapters queue in order so the opening one gets the whole connection on a slow line.
-      frameQueue = frameQueue.then(() => (mobile && s.frames ? loadFrames(c, s.frames) : loadClip(c, s)));
-    }
-
-    async function loadClip(c: Clip, s: ScrollScrubScene) {
-      try {
-        const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip));
-        if (!res.ok) throw new Error(String(res.status));
-        const blob = await res.blob();
-        if (destroyed) return;
-        const url = URL.createObjectURL(blob);
-        const v = document.createElement("video");
-        v.className = "scroll-scrub__video";
-        v.muted = true;
-        v.playsInline = true;
-        v.preload = "auto";
-        v.setAttribute("muted", "");
-        v.setAttribute("playsinline", "");
-        v.addEventListener("loadedmetadata", () => {
-          c.ready = true;
+    // Two passes, chapters in order: a light version of every chapter first so the whole film
+    // moves within seconds on a slow line, then the sharp versions swap in behind it.
+    async function loadAll() {
+      if (reduced) return;
+      for (const lite of [true, false]) {
+        for (let i = 0; i < clips.length; i++) {
+          const c = clips[i];
+          const s = scenes[i];
+          const useFrames = mobile && !!s.frames;
+          const src = useFrames ? (lite ? s.liteFrames : s.frames) : lite ? s.liteClip : mobile && s.mobileClip ? s.mobileClip : s.clip;
+          if (!src) continue;
+          c.loading = true;
+          for (let tries = 0; tries < 3 && !destroyed; tries++) {
+            if (await (useFrames ? loadFrames(c, src) : loadClip(c, src))) break;
+          }
           c.loading = false;
-          dirty = true;
-        }, { once: true });
-        v.addEventListener("loadeddata", () => {
-          if (userReady || !coarse) prime(v);
-        }, { once: true });
-        v.addEventListener("seeked", () => {
-          c.layer.dataset.videoPainted = "true";
-        });
-        v.src = url;
-        c.layer.append(v);
-        c.video = v;
-        c.url = url;
-      } catch {
-        c.loading = false; // try again when the visitor scrolls near it
+          if (destroyed) return;
+        }
       }
     }
 
+    async function loadClip(c: Clip, src: string): Promise<boolean> {
+      let blob: Blob;
+      try {
+        const res = await fetch(asset(src));
+        if (!res.ok) throw new Error(String(res.status));
+        blob = await res.blob();
+      } catch {
+        return false;
+      }
+      if (destroyed) return true;
+      const url = URL.createObjectURL(blob);
+      const v = document.createElement("video");
+      v.className = "scroll-scrub__video";
+      v.muted = true;
+      v.playsInline = true;
+      v.preload = "auto";
+      v.setAttribute("muted", "");
+      v.setAttribute("playsinline", "");
+      v.addEventListener("loadeddata", () => {
+        if (userReady || !coarse) prime(v);
+      }, { once: true });
+      v.addEventListener("seeked", () => {
+        c.layer.dataset.videoPainted = "true";
+      });
+      const old = c.video;
+      const oldUrl = c.url;
+      const swapIn = () => {
+        if (destroyed) return;
+        c.layer.append(v); // later sibling paints on top, so there is no blank frame
+        c.video = v;
+        c.url = url;
+        c.ready = true;
+        old?.remove();
+        if (oldUrl) URL.revokeObjectURL(oldUrl);
+        dirty = true;
+      };
+      if (!old) {
+        v.addEventListener("loadedmetadata", swapIn, { once: true });
+      } else {
+        // Sharp version: match the light one's frame before swapping so the picture doesn't jump.
+        v.addEventListener("loadedmetadata", () => {
+          v.addEventListener("seeked", swapIn, { once: true });
+          v.currentTime = old.currentTime;
+        }, { once: true });
+      }
+      v.src = url;
+      return true;
+    }
+
     // One request per chapter: GitHub Pages serves hundreds of small files far too slowly.
-    async function loadFrames(c: Clip, src: string) {
+    async function loadFrames(c: Clip, src: string): Promise<boolean> {
       let buf: ArrayBuffer;
       try {
         const res = await fetch(asset(src));
         if (!res.ok) throw new Error(String(res.status));
         buf = await res.arrayBuffer();
       } catch {
-        c.loading = false; // try again on the next scroll
-        return;
+        return false;
       }
-      if (destroyed) return;
+      if (destroyed) return true;
       const dv = new DataView(buf);
       const count = dv.getUint32(0, true);
       const urls: string[] = [];
@@ -166,13 +194,18 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         urls.push(URL.createObjectURL(new Blob([new Uint8Array(buf, off, len)], { type: "image/webp" })));
         off += len;
       }
-      c.frameUrls = urls;
-      const canvas = document.createElement("canvas");
-      canvas.className = "scroll-scrub__video";
-      c.layer.append(canvas);
-      c.canvas = canvas;
+      if (!c.canvas) {
+        const canvas = document.createElement("canvas");
+        canvas.className = "scroll-scrub__video";
+        c.layer.append(canvas);
+        c.canvas = canvas;
+      }
+      const upgrade = !!c.imgs; // frames are picked by fraction, so a shorter light pack and the full pack line up
       const imgs: (HTMLImageElement | undefined)[] = new Array(count);
-      c.imgs = imgs;
+      if (!upgrade) {
+        c.imgs = imgs;
+        c.frameUrls = urls;
+      }
       // Every 6th frame first, so scrubbing works before the rest arrive.
       const order = [...imgs.keys()].sort((a, b) => Number(a % 6 !== 0) - Number(b % 6 !== 0) || a - b);
       let next = 0;
@@ -184,14 +217,26 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
           try {
             await img.decode();
             imgs[k] = img;
-            c.ready = true;
-            c.drawn = -1; // a closer frame may now exist
+            if (!upgrade) {
+              c.ready = true;
+              c.drawn = -1; // a closer frame may now exist
+            }
           } catch {
             /* the nearest loaded frame stands in */
           }
         }
       };
-      for (let w = 0; w < 4; w++) void worker();
+      const workers = Promise.all([0, 1, 2, 3].map(worker));
+      if (upgrade) {
+        // Swap only once the sharp pack is fully decoded, so quality never steps down mid-scroll.
+        await workers;
+        if (destroyed) return true;
+        c.frameUrls?.forEach((u) => URL.revokeObjectURL(u));
+        c.imgs = imgs;
+        c.frameUrls = urls;
+        c.drawn = -1;
+      }
+      return true;
     }
 
     function drawFrame(c: Clip) {
@@ -240,8 +285,6 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         c.visible = opacity > 0.001;
         c.layer.style.opacity = String(opacity);
         c.layer.style.zIndex = i === idx ? "2" : "1";
-        // Fetch every chapter up front, in order: lazy loading left later chapters on stills on slower lines.
-        void load(i);
       });
       if (idx !== shown) {
         shown = idx;
@@ -327,6 +370,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     window.addEventListener("pointerdown", onGesture, { once: true, passive: true });
     window.addEventListener("touchstart", onGesture, { once: true, passive: true });
     layout();
+    void loadAll();
     // Fonts and images shift the page after first paint; measure again once they settle.
     window.addEventListener("load", layout, { once: true });
     frame = requestAnimationFrame(tick);

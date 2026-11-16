@@ -17,6 +17,8 @@ export const scrollScrubTheme: ScrollScrubTheme = {
 
 const seg = (n: number) => ({
   frames: `/assets/world/frames/0${n}.bin`, // phone still-frame pack, one per segment
+  liteFrames: `/assets/world/frames/0${n}-lite.bin`,
+  liteClip: `/assets/world/studio-0${n}-lite.mp4`,
   clip: `/assets/world/studio-0${n}.mp4`,
   mobileClip: `/assets/world/studio-0${n}-mobile.mp4`,
   poster: `/assets/world/studio-0${n}-poster.jpg`,
