@@ -1,5 +1,8 @@
 // NFC Software Solutions scroll-film player: the visitor's scroll scrubs a
 // film split into consecutive chapter clips, with chapter copy pinned over it.
+// A single animation-frame loop eases each clip toward the scroll position and
+// only asks for a new frame once the browser has finished the previous seek,
+// which is what keeps phones (iOS Safari, Android Chrome) from stalling.
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 export interface ScrollScrubScene {
@@ -28,6 +31,21 @@ export interface ScrollScrubTheme {
 const BASE = import.meta.env.BASE_URL;
 const asset = (p: string) => BASE + p.replace(/^\//, "");
 const MOBILE_QUERY = "(hover: none) and (pointer: coarse), (max-width: 860px)";
+const clamp = (v: number, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+
+interface Clip {
+  layer: HTMLElement;
+  band: HTMLElement;
+  start: number; // px from the top of the film section
+  end: number;
+  target: number; // 0..1 where the scroll wants this clip
+  current: number; // eased 0..1 actually shown
+  visible: boolean;
+  video?: HTMLVideoElement;
+  ready: boolean;
+  loading: boolean;
+  url?: string;
+}
 
 export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; theme: ScrollScrubTheme }) {
   const rootRef = useRef<HTMLElement>(null);
@@ -38,115 +56,177 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     const root = rootRef.current;
     if (!root) return;
     const layers = [...root.querySelectorAll<HTMLElement>("[data-film-layer]")];
-    const videos = layers.map((l) => l.querySelector("video")!);
     const bands = [...root.querySelectorAll<HTMLElement>("[data-film-band]")];
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const coarse = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     const mobile = window.matchMedia(MOBILE_QUERY).matches;
-    const urls: string[] = [];
-    const ctrl = new AbortController();
-    const want = new Array<number>(scenes.length).fill(0); // latest target time per clip
-    const seekStarted = new Array<number>(scenes.length).fill(0); // 0 = idle
-    const loading = new Array<boolean>(scenes.length).fill(false);
-    let current = -1;
+    const epsilon = mobile ? 0.02 : 0.008;
+    const clips: Clip[] = layers.map((layer, i) => ({
+      layer, band: bands[i], start: 0, end: 0, target: 0, current: 0,
+      visible: i === 0, ready: false, loading: false,
+    }));
+
+    let destroyed = false;
+    let dirty = true;
     let frame = 0;
+    let rootTop = 0;
+    let total = 1;
+    let vh = window.innerHeight;
+    let layoutWidth = window.innerWidth;
+    let userReady = false;
+    let shown = -1;
 
-    function seek(i: number) {
-      const v = videos[i];
-      if (!v.src || v.readyState < 1) return;
-      // A seek the browser never confirmed (phones sometimes drop them) must not freeze the clip.
-      if (seekStarted[i] && performance.now() - seekStarted[i] < 400) return;
-      const t = Math.min(want[i], Math.max(0, (v.duration || 0) - 0.04));
-      if (Math.abs(v.currentTime - t) < 0.01) {
-        seekStarted[i] = 0;
-        return;
-      }
-      seekStarted[i] = performance.now();
-      v.currentTime = t;
-    }
-
-    const onSeeked = videos.map((_, i) => () => {
-      seekStarted[i] = 0;
-      layers[i].dataset.videoPainted = "true";
-      seek(i); // catch up with the newest scroll position
-    });
-    videos.forEach((v, i) => v.addEventListener("seeked", onSeeked[i]));
-
-    // Muted inline video may play without a gesture; one play/pause makes phones paint seeked frames.
-    const prime = (v: HTMLVideoElement) => {
-      if (v.src) v.play().then(() => v.pause()).catch(() => {});
+    const prime = (v?: HTMLVideoElement) => {
+      if (v) v.play().then(() => v.pause()).catch(() => {});
     };
 
-    // Clips load as blobs so seeking is instant, several at once, nearest chapter first.
+    function layout() {
+      vh = window.innerHeight;
+      layoutWidth = window.innerWidth;
+      const y = window.scrollY;
+      rootTop = root!.getBoundingClientRect().top + y;
+      for (const c of clips) {
+        c.start = c.band.getBoundingClientRect().top + y - rootTop;
+        c.end = c.start + c.band.offsetHeight;
+      }
+      total = Math.max(clips.at(-1)?.end ?? vh, vh);
+      dirty = true;
+    }
+
     async function load(i: number) {
-      if (reduced || loading[i] || i < 0 || i >= scenes.length) return;
-      loading[i] = true;
+      const c = clips[i];
+      if (!c || reduced || destroyed || c.loading || c.ready) return;
+      c.loading = true;
       try {
         const s = scenes[i];
-        const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip), { signal: ctrl.signal });
+        const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip));
         if (!res.ok) throw new Error(String(res.status));
-        const url = URL.createObjectURL(await res.blob());
-        urls.push(url);
-        const v = videos[i];
-        v.addEventListener("loadedmetadata", () => update(), { once: true });
-        v.addEventListener("loadeddata", () => { prime(v); update(); }, { once: true });
+        const blob = await res.blob();
+        if (destroyed) return;
+        const url = URL.createObjectURL(blob);
+        const v = document.createElement("video");
+        v.className = "scroll-scrub__video";
+        v.muted = true;
+        v.playsInline = true;
+        v.preload = "auto";
+        v.setAttribute("muted", "");
+        v.setAttribute("playsinline", "");
+        v.addEventListener("loadedmetadata", () => {
+          c.ready = true;
+          c.loading = false;
+          dirty = true;
+        }, { once: true });
+        v.addEventListener("loadeddata", () => {
+          if (userReady || !coarse) prime(v);
+        }, { once: true });
+        v.addEventListener("seeked", () => {
+          c.layer.dataset.videoPainted = "true";
+        });
         v.src = url;
+        c.layer.append(v);
+        c.video = v;
+        c.url = url;
       } catch {
-        loading[i] = false; // aborted or offline: the poster stays up, retry on the next scroll
+        c.loading = false; // try again when the visitor scrolls near it
       }
     }
 
-    function update() {
-      frame = 0;
-      const y = window.scrollY;
-      const vh = window.innerHeight;
-      const top = root!.getBoundingClientRect().top + y;
-      const total = Math.max(1, root!.offsetHeight - vh);
-      root!.style.setProperty("--ss-progress", String(Math.min(1, Math.max(0, (y - top) / total))));
-
+    function readScroll() {
+      const y = clamp(window.scrollY - rootTop, 0, total);
+      const fade = 0.1 * vh;
       let idx = 0;
-      bands.forEach((b, i) => {
-        const bTop = b.getBoundingClientRect().top + y;
-        const p = Math.min(1, Math.max(0, (y - bTop) / Math.max(1, b.offsetHeight)));
-        if (y >= bTop - 1) idx = i;
-        want[i] = p * (videos[i].duration || 0);
-        seek(i);
+      clips.forEach((c, i) => {
+        if (y >= c.start) idx = i;
       });
-      // Current chapter first, then its neighbours, then the rest.
-      [idx, idx + 1, idx - 1, idx + 2, idx + 3].forEach((i) => void load(i));
-      if (idx !== current) {
-        current = idx;
-        layers.forEach((l, i) => {
-          l.style.opacity = i === idx ? "1" : "0";
-        });
+      clips.forEach((c, i) => {
+        c.target = clamp((y - c.start) / Math.max(c.end - c.start, 1));
+        const outside = y < c.start ? c.start - y : y > c.end ? y - c.end : 0;
+        const t = clamp(1 - outside / Math.max(fade, 1));
+        const opacity = reduced ? (outside === 0 ? 1 : 0) : t * t * (3 - 2 * t);
+        c.visible = opacity > 0.001;
+        c.layer.style.opacity = String(opacity);
+        c.layer.style.zIndex = i === idx ? "2" : "1";
+        if (y > c.start - 1.5 * vh && y < c.end + 1.5 * vh) void load(i);
+      });
+      if (idx !== shown) {
+        shown = idx;
         setActive(idx);
       }
+      root!.style.setProperty("--ss-progress", String(clamp(y / Math.max(total - vh, 1))));
     }
+
+    function updateVideos() {
+      for (const c of clips) {
+        const v = c.video;
+        if (!v || !c.ready || v.seeking) continue;
+        if (!c.visible && Math.abs(c.current - c.target) < 0.002) continue;
+        c.current += (c.target - c.current) * 0.2;
+        const t = clamp(c.current, 0, 0.999) * (v.duration || 1);
+        if (Math.abs(v.currentTime - t) > epsilon) {
+          try {
+            v.currentTime = t;
+          } catch {
+            /* keep the last painted frame */
+          }
+        }
+      }
+    }
+
+    function tick() {
+      if (destroyed) return;
+      if (dirty) {
+        dirty = false;
+        readScroll();
+      }
+      updateVideos();
+      frame = requestAnimationFrame(tick);
+    }
+
     const onScroll = () => {
-      if (!frame) frame = requestAnimationFrame(update);
+      dirty = true;
+    };
+    // Phones resize on every address-bar slide; only re-measure on a real width change.
+    const onResize = () => {
+      if (coarse && window.innerWidth === layoutWidth) return;
+      layout();
+    };
+    const onGesture = () => {
+      if (userReady) return;
+      userReady = true;
+      clips.forEach((c) => prime(c.video));
     };
 
-    // Older iOS still wants a real gesture before it paints seeked frames.
-    const primeAll = () => videos.forEach(prime);
-    window.addEventListener("touchstart", primeAll, { once: true, passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
-    update();
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", layout);
+    window.addEventListener("pointerdown", onGesture, { once: true, passive: true });
+    window.addEventListener("touchstart", onGesture, { once: true, passive: true });
+    layout();
+    // Fonts and images shift the page after first paint; measure again once they settle.
+    window.addEventListener("load", layout, { once: true });
+    frame = requestAnimationFrame(tick);
 
     jumpRef.current = (i: number) => {
-      const b = bands[i];
-      if (b) {
-        window.scrollTo({ top: b.getBoundingClientRect().top + window.scrollY + 2, behavior: reduced ? "auto" : "smooth" });
+      const c = clips[i];
+      if (c) {
+        window.scrollTo({ top: rootTop + c.start + 0.15 * (c.end - c.start), behavior: reduced ? "auto" : "smooth" });
       }
     };
 
     return () => {
-      ctrl.abort();
+      destroyed = true;
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
-      window.removeEventListener("touchstart", primeAll);
-      videos.forEach((v, i) => v.removeEventListener("seeked", onSeeked[i]));
-      urls.forEach((u) => URL.revokeObjectURL(u));
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", layout);
+      window.removeEventListener("pointerdown", onGesture);
+      window.removeEventListener("touchstart", onGesture);
+      window.removeEventListener("load", layout);
+      for (const c of clips) {
+        c.video?.remove();
+        if (c.url) URL.revokeObjectURL(c.url);
+        delete c.layer.dataset.videoPainted;
+      }
     };
   }, [scenes]);
 
@@ -174,7 +254,6 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
                   fetchPriority={i === 0 ? "high" : "auto"}
                 />
               </picture>
-              <video className="scroll-scrub__video" muted playsInline preload="auto" />
             </figure>
           ))}
         </div>
