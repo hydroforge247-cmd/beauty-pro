@@ -45,43 +45,54 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     const urls: string[] = [];
     const ctrl = new AbortController();
     const want = new Array<number>(scenes.length).fill(0); // latest target time per clip
-    const seeking = new Array<boolean>(scenes.length).fill(false);
+    const seekStarted = new Array<number>(scenes.length).fill(0); // 0 = idle
+    const loading = new Array<boolean>(scenes.length).fill(false);
     let current = -1;
     let frame = 0;
 
     function seek(i: number) {
       const v = videos[i];
-      if (!v.src || v.readyState < 1 || seeking[i]) return;
+      if (!v.src || v.readyState < 1) return;
+      // A seek the browser never confirmed (phones sometimes drop them) must not freeze the clip.
+      if (seekStarted[i] && performance.now() - seekStarted[i] < 400) return;
       const t = Math.min(want[i], Math.max(0, (v.duration || 0) - 0.04));
-      if (Math.abs(v.currentTime - t) < 0.01) return;
-      seeking[i] = true;
+      if (Math.abs(v.currentTime - t) < 0.01) {
+        seekStarted[i] = 0;
+        return;
+      }
+      seekStarted[i] = performance.now();
       v.currentTime = t;
     }
 
     const onSeeked = videos.map((_, i) => () => {
-      seeking[i] = false;
+      seekStarted[i] = 0;
       layers[i].dataset.videoPainted = "true";
       seek(i); // catch up with the newest scroll position
     });
     videos.forEach((v, i) => v.addEventListener("seeked", onSeeked[i]));
 
-    // Clips load as blobs so seeking is instant; first chapter first.
-    if (!reduced) {
-      (async () => {
-        for (let i = 0; i < scenes.length; i++) {
-          try {
-            const s = scenes[i];
-            const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip), { signal: ctrl.signal });
-            if (!res.ok) throw new Error(String(res.status));
-            const url = URL.createObjectURL(await res.blob());
-            urls.push(url);
-            videos[i].src = url;
-            videos[i].addEventListener("loadedmetadata", () => update(), { once: true });
-          } catch {
-            return; // aborted or offline: the posters stay up
-          }
-        }
-      })();
+    // Muted inline video may play without a gesture; one play/pause makes phones paint seeked frames.
+    const prime = (v: HTMLVideoElement) => {
+      if (v.src) v.play().then(() => v.pause()).catch(() => {});
+    };
+
+    // Clips load as blobs so seeking is instant, several at once, nearest chapter first.
+    async function load(i: number) {
+      if (reduced || loading[i] || i < 0 || i >= scenes.length) return;
+      loading[i] = true;
+      try {
+        const s = scenes[i];
+        const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip), { signal: ctrl.signal });
+        if (!res.ok) throw new Error(String(res.status));
+        const url = URL.createObjectURL(await res.blob());
+        urls.push(url);
+        const v = videos[i];
+        v.addEventListener("loadedmetadata", () => update(), { once: true });
+        v.addEventListener("loadeddata", () => { prime(v); update(); }, { once: true });
+        v.src = url;
+      } catch {
+        loading[i] = false; // aborted or offline: the poster stays up, retry on the next scroll
+      }
     }
 
     function update() {
@@ -100,6 +111,8 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         want[i] = p * (videos[i].duration || 0);
         seek(i);
       });
+      // Current chapter first, then its neighbours, then the rest.
+      [idx, idx + 1, idx - 1, idx + 2, idx + 3].forEach((i) => void load(i));
       if (idx !== current) {
         current = idx;
         layers.forEach((l, i) => {
@@ -112,9 +125,9 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       if (!frame) frame = requestAnimationFrame(update);
     };
 
-    // iOS only paints seeked frames once a gesture has touched the video.
-    const prime = () => videos.forEach((v) => v.play().then(() => v.pause()).catch(() => {}));
-    window.addEventListener("touchstart", prime, { once: true, passive: true });
+    // Older iOS still wants a real gesture before it paints seeked frames.
+    const primeAll = () => videos.forEach(prime);
+    window.addEventListener("touchstart", primeAll, { once: true, passive: true });
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("resize", onScroll);
     update();
@@ -131,7 +144,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       cancelAnimationFrame(frame);
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("resize", onScroll);
-      window.removeEventListener("touchstart", prime);
+      window.removeEventListener("touchstart", primeAll);
       videos.forEach((v, i) => v.removeEventListener("seeked", onSeeked[i]));
       urls.forEach((u) => URL.revokeObjectURL(u));
     };

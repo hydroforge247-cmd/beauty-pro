@@ -369,3 +369,6 @@
 }
 .bp-proof { z-index: 2; } .bp-book { z-index: 3; } .bp-visit { z-index: 4; }
 .bp-academy { z-index: 5; } .bp-branch { z-index: 6; } .bp-foot { z-index: 7; }
+
+/* Phones: keep the chapter links clear of the floating Book button. */
+@media (max-width: 799px) { .bp .scroll-scrub__route { right: 104px; } }
