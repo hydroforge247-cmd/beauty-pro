@@ -75,6 +75,6 @@
   .scroll-scrub__title { max-width: 14ch; font-size: clamp(2.3rem, 11vw, 4.5rem); }
 }
 
-@media (prefers-reduced-motion: reduce) {
+@media (prefers-reduced-motion: reduce) and (min-width: 861px) and (pointer: fine) {
   .scroll-scrub__chapter { min-height: 100vh !important; min-height: 100dvh !important; }
 }

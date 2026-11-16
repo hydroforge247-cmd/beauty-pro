@@ -64,9 +64,10 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     if (!root) return;
     const layers = [...root.querySelectorAll<HTMLElement>("[data-film-layer]")];
     const bands = [...root.querySelectorAll<HTMLElement>("[data-film-band]")];
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const coarse = window.matchMedia("(hover: none) and (pointer: coarse)").matches;
     const mobile = window.matchMedia(MOBILE_QUERY).matches;
+    // Phones: the film only moves under the finger, and Huawei power saving turns reduce-motion on, so ignore it there.
+    const reduced = !mobile && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const epsilon = mobile ? 0.02 : 0.008;
     const clips: Clip[] = layers.map((layer, i) => ({
       layer, band: bands[i], start: 0, end: 0, target: 0, current: 0,
