@@ -55,6 +55,7 @@ export default function App() {
               ))}
             </div>
           </div>
+          <div className="bp-specials-bar" aria-hidden="true"><span /></div>
         </div>
       </section>
 

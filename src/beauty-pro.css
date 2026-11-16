@@ -247,8 +247,12 @@
 /* ---- v4: pinned specials, toast, extra motion ---- */
 .bp-specials { padding: 0; }
 .bp-specials-pin { padding: 80px 0 72px; }
-.bp-marquee-viewport { overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
-.bp-marquee-viewport::-webkit-scrollbar { display: none; }
+/* Fallback (no scroll timeline, or reduce-motion): a visible thin bar so people know the row swipes. */
+.bp-marquee-viewport { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--rose) rgb(255 255 255 / .15); -webkit-overflow-scrolling: touch; }
+.bp-marquee-viewport::-webkit-scrollbar { height: 4px; }
+.bp-marquee-viewport::-webkit-scrollbar-track { background: rgb(255 255 255 / .15); border-radius: 4px; margin: 0 16px; }
+.bp-marquee-viewport::-webkit-scrollbar-thumb { background: var(--rose); border-radius: 4px; }
+.bp-specials-bar { display: none; }
 .bp-marquee { width: max-content; overflow: visible; padding: 24px 16px 8px; }
 .bp-specials-hint { display: none; }
 
@@ -261,6 +265,10 @@
       display: flex; flex-direction: column; justify-content: center; overflow: hidden;
     }
     .bp-specials-hint { display: block; }
+    /* Progress bar under the cards fills as the deals glide past. */
+    .bp-specials-bar { display: block; height: 4px; margin: 20px 16px 0; border-radius: 4px; background: rgb(255 255 255 / .15); overflow: hidden; }
+    .bp-specials-bar span { display: block; height: 100%; background: var(--rose); transform-origin: left; animation: bp-fill linear both; animation-timeline: --specials; animation-range: contain 0% contain 100%; }
+    @keyframes bp-fill { from { transform: scaleX(.08); } to { transform: scaleX(1); } }
     .bp-marquee-viewport { overflow: visible; }
     .bp-marquee {
       animation: bp-glide linear both;

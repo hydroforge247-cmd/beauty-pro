@@ -201,7 +201,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         if (imgs[want - d]) k = want - d;
         else if (imgs[want + d]) k = want + d;
       }
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const w = Math.round(cv.clientWidth * dpr);
       const h = Math.round(cv.clientHeight * dpr);
       const resized = cv.width !== w || cv.height !== h;
@@ -214,7 +214,9 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight); // object-fit: cover
       const dw = img.naturalWidth * scale;
       const dh = img.naturalHeight * scale;
-      cv.getContext("2d")!.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      const ctx = cv.getContext("2d")!;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
       c.drawn = k;
       cv.dataset.frame = String(k);
       c.layer.dataset.videoPainted = "true";
