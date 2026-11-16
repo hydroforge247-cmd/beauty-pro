@@ -209,7 +209,8 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         c.visible = opacity > 0.001;
         c.layer.style.opacity = String(opacity);
         c.layer.style.zIndex = i === idx ? "2" : "1";
-        if (y > c.start - 1.5 * vh && y < c.end + 1.5 * vh) void load(i);
+        // Phone frames are light, so fetch every chapter up front; a quick thumb-flick would outrun lazy loading.
+        if (mobile || (y > c.start - 1.5 * vh && y < c.end + 1.5 * vh)) void load(i);
       });
       if (idx !== shown) {
         shown = idx;
