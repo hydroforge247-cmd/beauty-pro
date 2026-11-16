@@ -97,7 +97,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         c.start = c.band.getBoundingClientRect().top + y - rootTop;
         c.end = c.start + c.band.offsetHeight;
       }
-      total = Math.max(clips.at(-1)?.end ?? vh, vh);
+      total = Math.max(clips[clips.length - 1]?.end ?? vh, vh);
       dirty = true;
     }
 
@@ -265,8 +265,34 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       }
     }
 
+    let lastY = -1;
+    // ?debug on the URL shows what the film is doing, for phones we can't attach a debugger to.
+    const debug = new URLSearchParams(location.search).has("debug") ? document.createElement("pre") : null;
+    if (debug) {
+      debug.style.cssText = "position:fixed;left:4px;right:4px;top:60px;z-index:99;margin:0;padding:6px;font:11px/1.3 monospace;color:#0f0;background:rgba(0,0,0,.75);white-space:pre-wrap;pointer-events:none";
+      document.body.append(debug);
+      const errs: string[] = [];
+      window.addEventListener("error", (e) => errs.push(e.message));
+      const show = () => {
+        if (destroyed) return debug.remove();
+        debug.textContent = [
+          navigator.userAgent,
+          `mobile=${mobile} coarse=${coarse} reduced=${reduced} vh=${vh} y=${Math.round(window.scrollY)} top=${Math.round(rootTop)} chapter=${shown}`,
+          ...clips.map((c, i) => `${i}: ${Math.round(c.start)}-${Math.round(c.end)} ready=${c.ready} loading=${c.loading} target=${c.target.toFixed(2)} ${c.canvas ? `frame=${c.drawn}/${c.imgs?.length} loaded=${c.imgs?.filter(Boolean).length}` : c.video ? `video t=${c.video.currentTime.toFixed(2)}` : "poster"} op=${c.layer.style.opacity.slice(0, 4)}`),
+          ...errs.slice(-3),
+        ].join("\n");
+        setTimeout(show, 400);
+      };
+      show();
+    }
+
     function tick() {
       if (destroyed) return;
+      // Some Android browsers hold back scroll events during a fling; read the position every frame.
+      if (window.scrollY !== lastY) {
+        lastY = window.scrollY;
+        dirty = true;
+      }
       if (dirty) {
         dirty = false;
         readScroll();
@@ -380,7 +406,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
               className="scroll-scrub__chapter"
               data-align={s.align ?? "left"}
               data-film-band=""
-              style={{ minHeight: `${(s.scroll ?? 1) * 100}dvh` }}
+              style={{ "--ss-len": s.scroll ?? 1 } as CSSProperties}
             >
               <div className="scroll-scrub__chapter-pin">
                 <div className="scroll-scrub__copy">

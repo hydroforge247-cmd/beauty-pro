@@ -1,6 +1,6 @@
 /* Layout and type for the scroll-film hero (NFC Software Solutions). */
 .scroll-scrub { --ss-progress: 0; position: relative; isolation: isolate; color: var(--ss-ink); background: var(--ss-bg); }
-.scroll-scrub__stage { position: sticky; top: 0; z-index: 0; width: 100%; height: 100dvh; overflow: hidden; background: var(--ss-bg); }
+.scroll-scrub__stage { position: sticky; top: 0; z-index: 0; width: 100%; height: 100vh; height: 100dvh; overflow: hidden; background: var(--ss-bg); }
 .scroll-scrub__media,
 .scroll-scrub__layer,
 .scroll-scrub__picture,
@@ -37,10 +37,10 @@
 }
 .scroll-scrub__route-button:focus-visible { outline: 2px solid var(--ss-accent); outline-offset: 3px; }
 
-.scroll-scrub__story { position: relative; z-index: 3; margin-top: -100dvh; pointer-events: none; }
-.scroll-scrub__chapter { position: relative; }
+.scroll-scrub__story { position: relative; z-index: 3; margin-top: -100vh; margin-top: -100dvh; pointer-events: none; }
+.scroll-scrub__chapter { position: relative; min-height: calc(var(--ss-len, 1) * 100vh); min-height: calc(var(--ss-len, 1) * 100dvh); }
 .scroll-scrub__chapter-pin {
-  position: sticky; top: 0; display: flex; align-items: center; min-height: 100dvh;
+  position: sticky; top: 0; display: flex; align-items: center; min-height: 100vh; min-height: 100dvh;
   padding: clamp(5rem, 9vw, 8rem) clamp(1.25rem, 6vw, 6rem); pointer-events: none;
 }
 .scroll-scrub__chapter[data-align="right"] .scroll-scrub__chapter-pin { justify-content: flex-end; }
@@ -76,5 +76,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .scroll-scrub__chapter { min-height: 100dvh !important; }
+  .scroll-scrub__chapter { min-height: 100vh !important; min-height: 100dvh !important; }
 }

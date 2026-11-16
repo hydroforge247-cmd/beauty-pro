@@ -6,5 +6,7 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   base: "/beauty-pro/",
   plugins: [react()],
+  // Older Android browsers (Huawei, Samsung Internet) lag Chrome; compile syntax down for them.
+  build: { target: ["es2019", "chrome79"] },
   resolve: { alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) } },
 });
