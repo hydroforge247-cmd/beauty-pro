@@ -12,6 +12,8 @@ export interface ScrollScrubScene {
   mobileClip?: string;
   poster: string;
   mobilePoster?: string;
+  /** Phones scrub still frames on a canvas instead of seeking video (seeking stutters on phones). */
+  frames?: { dir: string; count: number };
   title: string;
   body: string;
   kicker?: string;
@@ -45,6 +47,9 @@ interface Clip {
   ready: boolean;
   loading: boolean;
   url?: string;
+  canvas?: HTMLCanvasElement;
+  imgs?: (HTMLImageElement | undefined)[];
+  drawn: number;
 }
 
 export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; theme: ScrollScrubTheme }) {
@@ -63,7 +68,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     const epsilon = mobile ? 0.02 : 0.008;
     const clips: Clip[] = layers.map((layer, i) => ({
       layer, band: bands[i], start: 0, end: 0, target: 0, current: 0,
-      visible: i === 0, ready: false, loading: false,
+      visible: i === 0, ready: false, loading: false, drawn: -1,
     }));
 
     let destroyed = false;
@@ -97,8 +102,9 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       const c = clips[i];
       if (!c || reduced || destroyed || c.loading || c.ready) return;
       c.loading = true;
+      const s = scenes[i];
+      if (mobile && s.frames) return loadFrames(c, s.frames);
       try {
-        const s = scenes[i];
         const res = await fetch(asset(mobile && s.mobileClip ? s.mobileClip : s.clip));
         if (!res.ok) throw new Error(String(res.status));
         const blob = await res.blob();
@@ -131,6 +137,63 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       }
     }
 
+    function loadFrames(c: Clip, f: { dir: string; count: number }) {
+      const canvas = document.createElement("canvas");
+      canvas.className = "scroll-scrub__video";
+      c.layer.append(canvas);
+      c.canvas = canvas;
+      const imgs: (HTMLImageElement | undefined)[] = new Array(f.count);
+      c.imgs = imgs;
+      // Every 6th frame first, so scrubbing works before the rest arrive.
+      const order = [...imgs.keys()].sort((a, b) => Number(a % 6 !== 0) - Number(b % 6 !== 0) || a - b);
+      let next = 0;
+      const worker = async () => {
+        while (next < order.length && !destroyed) {
+          const k = order[next++];
+          const img = new Image();
+          img.src = asset(`${f.dir}${String(k + 1).padStart(3, "0")}.webp`);
+          try {
+            await img.decode();
+            imgs[k] = img;
+            c.ready = true;
+            c.drawn = -1; // a closer frame may now exist
+          } catch {
+            /* the nearest loaded frame stands in */
+          }
+        }
+      };
+      for (let w = 0; w < 4; w++) void worker();
+    }
+
+    function drawFrame(c: Clip) {
+      const imgs = c.imgs!;
+      const cv = c.canvas!;
+      c.current += (c.target - c.current) * 0.2;
+      const want = Math.round(clamp(c.current) * (imgs.length - 1));
+      let k = -1;
+      for (let d = 0; d < imgs.length && k < 0; d++) {
+        if (imgs[want - d]) k = want - d;
+        else if (imgs[want + d]) k = want + d;
+      }
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const w = Math.round(cv.clientWidth * dpr);
+      const h = Math.round(cv.clientHeight * dpr);
+      const resized = cv.width !== w || cv.height !== h;
+      if (k < 0 || (k === c.drawn && !resized)) return;
+      if (resized) {
+        cv.width = w;
+        cv.height = h;
+      }
+      const img = imgs[k]!;
+      const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight); // object-fit: cover
+      const dw = img.naturalWidth * scale;
+      const dh = img.naturalHeight * scale;
+      cv.getContext("2d")!.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      c.drawn = k;
+      cv.dataset.frame = String(k);
+      c.layer.dataset.videoPainted = "true";
+    }
+
     function readScroll() {
       const y = clamp(window.scrollY - rootTop, 0, total);
       const fade = 0.1 * vh;
@@ -157,6 +220,10 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
 
     function updateVideos() {
       for (const c of clips) {
+        if (c.canvas) {
+          if (c.ready) drawFrame(c);
+          continue;
+        }
         const v = c.video;
         if (!v || !c.ready || v.seeking) continue;
         if (!c.visible && Math.abs(c.current - c.target) < 0.002) continue;
@@ -224,6 +291,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       window.removeEventListener("load", layout);
       for (const c of clips) {
         c.video?.remove();
+        c.canvas?.remove();
         if (c.url) URL.revokeObjectURL(c.url);
         delete c.layer.dataset.videoPainted;
       }
