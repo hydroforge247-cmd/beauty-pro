@@ -15,9 +15,8 @@ export const scrollScrubTheme: ScrollScrubTheme = {
   muted: "#E7B9C6",
 };
 
-const FRAME_COUNTS = [45, 83, 136, 97]; // phone still-frame sequences, one per segment
 const seg = (n: number) => ({
-  frames: { dir: `/assets/world/frames/0${n}/`, count: FRAME_COUNTS[n - 1] },
+  frames: `/assets/world/frames/0${n}.bin`, // phone still-frame pack, one per segment
   clip: `/assets/world/studio-0${n}.mp4`,
   mobileClip: `/assets/world/studio-0${n}-mobile.mp4`,
   poster: `/assets/world/studio-0${n}-poster.jpg`,

@@ -13,7 +13,8 @@ export interface ScrollScrubScene {
   poster: string;
   mobilePoster?: string;
   /** Phones scrub still frames on a canvas instead of seeking video (seeking stutters on phones). */
-  frames?: { dir: string; count: number };
+  /** One file per chapter: uint32 LE count, count × uint32 LE lengths, then the WebP frames back to back. */
+  frames?: string;
   title: string;
   body: string;
   kicker?: string;
@@ -49,6 +50,7 @@ interface Clip {
   url?: string;
   canvas?: HTMLCanvasElement;
   imgs?: (HTMLImageElement | undefined)[];
+  frameUrls?: string[];
   drawn: number;
 }
 
@@ -137,12 +139,33 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       }
     }
 
-    function loadFrames(c: Clip, f: { dir: string; count: number }) {
+    // One request per chapter: GitHub Pages serves hundreds of small files far too slowly.
+    async function loadFrames(c: Clip, src: string) {
+      let buf: ArrayBuffer;
+      try {
+        const res = await fetch(asset(src));
+        if (!res.ok) throw new Error(String(res.status));
+        buf = await res.arrayBuffer();
+      } catch {
+        c.loading = false; // try again on the next scroll
+        return;
+      }
+      if (destroyed) return;
+      const dv = new DataView(buf);
+      const count = dv.getUint32(0, true);
+      const urls: string[] = [];
+      let off = 4 + 4 * count;
+      for (let k = 0; k < count; k++) {
+        const len = dv.getUint32(4 + 4 * k, true);
+        urls.push(URL.createObjectURL(new Blob([new Uint8Array(buf, off, len)], { type: "image/webp" })));
+        off += len;
+      }
+      c.frameUrls = urls;
       const canvas = document.createElement("canvas");
       canvas.className = "scroll-scrub__video";
       c.layer.append(canvas);
       c.canvas = canvas;
-      const imgs: (HTMLImageElement | undefined)[] = new Array(f.count);
+      const imgs: (HTMLImageElement | undefined)[] = new Array(count);
       c.imgs = imgs;
       // Every 6th frame first, so scrubbing works before the rest arrive.
       const order = [...imgs.keys()].sort((a, b) => Number(a % 6 !== 0) - Number(b % 6 !== 0) || a - b);
@@ -151,7 +174,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         while (next < order.length && !destroyed) {
           const k = order[next++];
           const img = new Image();
-          img.src = asset(`${f.dir}${String(k + 1).padStart(3, "0")}.webp`);
+          img.src = urls[k];
           try {
             await img.decode();
             imgs[k] = img;
@@ -293,6 +316,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       for (const c of clips) {
         c.video?.remove();
         c.canvas?.remove();
+        c.frameUrls?.forEach((u) => URL.revokeObjectURL(u));
         if (c.url) URL.revokeObjectURL(c.url);
         delete c.layer.dataset.videoPainted;
       }
