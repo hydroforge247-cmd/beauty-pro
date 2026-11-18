@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { ScrollScrub } from "./film";
+import { CinemaHero } from "./cinema";
 import { Booking } from "@/components/booking";
 import { SpecialsToast } from "@/components/specials-toast";
 import { MENU, SPECIALS, TRAINING } from "@/beauty-pro-data";
-import { scrollScrubScenes, scrollScrubTheme } from "./scenes";
+import { film } from "./scenes";
 
 const PHONE = "27683460928";
 const PHONE_DISPLAY = "068 346 0928";
@@ -44,7 +44,7 @@ function ThemeSwitch() {
 function useAfterFilm() {
   const [after, setAfter] = useState(false);
   useEffect(() => {
-    const film = document.querySelector(".scroll-scrub");
+    const film = document.querySelector(".cine");
     if (!film) return;
     const io = new IntersectionObserver(([e]) => setAfter(!e.isIntersecting && e.boundingClientRect.top < 0));
     io.observe(film);
@@ -70,7 +70,7 @@ export default function App() {
         <a className="bp-nav-book" href="#book">Book now</a>
       </header>
 
-      <ScrollScrub scenes={scrollScrubScenes} theme={scrollScrubTheme} />
+      <CinemaHero phone={film.phone} wide={film.wide} cues={film.cues} brand="Beauty Pro" id="studio" />
 
       <section className="bp-specials" id="specials" aria-labelledby="specials-title">
         <div className="bp-specials-pin">
