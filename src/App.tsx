@@ -77,7 +77,7 @@ export default function App() {
           <div className="bp-wrap">
             <p className="bp-tag">15 to 30 November</p>
             <h2 id="specials-title" className="bp-h2 bp-h2--light">Black Friday specials</h2>
-            <p className="bp-proof-copy bp-specials-hint">Keep scrolling to see every deal.</p>
+            <p className="bp-specials-hint">Swipe for every deal <span className="bp-swipe" aria-hidden="true" /></p>
           </div>
           <div className="bp-marquee-viewport">
             <div className="bp-marquee" role="list">

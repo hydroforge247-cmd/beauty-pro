@@ -242,34 +242,50 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       return true;
     }
 
+    // Phones: blend the two frames either side of the scroll position, so a slowing scroll
+    // dissolves smoothly to a stop instead of stepping from still to still.
     function drawFrame(c: Clip) {
       const imgs = c.imgs!;
       const cv = c.canvas!;
-      c.current += (c.target - c.current) * 0.2;
-      const want = Math.round(clamp(c.current) * (imgs.length - 1));
-      let k = -1;
-      for (let d = 0; d < imgs.length && k < 0; d++) {
-        if (imgs[want - d]) k = want - d;
-        else if (imgs[want + d]) k = want + d;
-      }
+      c.current += (c.target - c.current) * 0.12;
+      if (Math.abs(c.target - c.current) < 0.0004) c.current = c.target;
+      const pos = clamp(c.current) * (imgs.length - 1);
+      const near = (want: number) => {
+        for (let d = 0; d < imgs.length; d++) {
+          if (imgs[want - d]) return want - d;
+          if (imgs[want + d]) return want + d;
+        }
+        return -1;
+      };
+      const k0 = near(Math.floor(pos));
+      if (k0 < 0) return;
+      let k1 = Math.min(Math.floor(pos) + 1, imgs.length - 1);
+      if (!imgs[k1]) k1 = k0; // neighbour not decoded yet: show the nearest one alone
+      const mix = k1 === k0 ? 0 : Math.round((pos - Math.floor(pos)) * 8) / 8;
+      const key = k0 + mix / 2 + k1 * 1000;
       const dpr = Math.min(window.devicePixelRatio || 1, 3);
       const w = Math.round(cv.clientWidth * dpr);
       const h = Math.round(cv.clientHeight * dpr);
       const resized = cv.width !== w || cv.height !== h;
-      if (k < 0 || (k === c.drawn && !resized)) return;
+      if (key === c.drawn && !resized) return;
       if (resized) {
         cv.width = w;
         cv.height = h;
       }
-      const img = imgs[k]!;
-      const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight); // object-fit: cover
-      const dw = img.naturalWidth * scale;
-      const dh = img.naturalHeight * scale;
       const ctx = cv.getContext("2d")!;
       ctx.imageSmoothingQuality = "high";
-      ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
-      c.drawn = k;
-      cv.dataset.frame = String(k);
+      const paint = (img: HTMLImageElement, alpha: number) => {
+        const scale = Math.max(w / img.naturalWidth, h / img.naturalHeight); // object-fit: cover
+        const dw = img.naturalWidth * scale;
+        const dh = img.naturalHeight * scale;
+        ctx.globalAlpha = alpha;
+        ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+      };
+      paint(imgs[k0]!, 1);
+      if (mix > 0) paint(imgs[k1]!, mix);
+      ctx.globalAlpha = 1;
+      c.drawn = key;
+      cv.dataset.frame = String(k0);
       c.layer.dataset.videoPainted = "true";
     }
 
