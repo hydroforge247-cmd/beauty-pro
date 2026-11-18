@@ -73,5 +73,6 @@ export const scrollScrubScenes: ScrollScrubScene[] = [
 const B = import.meta.env.BASE_URL;
 export const film = {
   phone: { src: `${B}assets/film/beauty-m.mp4`, poster: `${B}assets/film/beauty-m.jpg` },
-  cues: scrollScrubScenes.map((s, i) => ({ at: i * 7.5, kicker: s.kicker, title: s.title, body: s.body, cta: s.cta })),
+  // fade starts just before each chapter (starts 0, 7.6, 13.4, 21.9 in the eased cut from film-src/phone-film.mjs)
+  cues: scrollScrubScenes.map((s, i) => ({ at: [0, 6.9, 12.7, 21.2][i], kicker: s.kicker, title: s.title, body: s.body, cta: s.cta })),
 };
