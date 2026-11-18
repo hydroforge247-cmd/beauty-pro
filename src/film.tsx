@@ -84,7 +84,7 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
     let frame = 0;
     let rootTop = 0;
     let total = 1;
-    let vh = window.innerHeight;
+    let vh = window.innerHeight; // measured with the address bar showing, same as CSS svh
     let layoutWidth = window.innerWidth;
     let userReady = false;
     let shown = -1;
@@ -106,12 +106,13 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
       dirty = true;
     }
 
-    // Two passes, chapters in order: a light version of every chapter first so the whole film
-    // moves within seconds on a slow line, then the sharp versions swap in behind it.
+    // The opening chapter loads sharp straight away (it is what people judge the site on); the others
+    // get a light version first so the whole film moves quickly on a slow line, then sharp ones swap in.
     async function loadAll() {
       if (reduced) return;
-      for (const lite of [true, false]) {
-        for (let i = 0; i < clips.length; i++) {
+      const plan: [number, boolean][] = [[0, false], ...clips.slice(1).map((_, i) => [i + 1, true] as [number, boolean]), ...clips.slice(1).map((_, i) => [i + 1, false] as [number, boolean])];
+      for (const [i, lite] of plan) {
+        {
           const c = clips[i];
           const s = scenes[i];
           const useFrames = mobile && !!s.frames;
@@ -288,10 +289,17 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         c.layer.style.opacity = String(opacity);
         c.layer.style.zIndex = i === idx ? "2" : "1";
       });
-      if (idx !== shown) {
-        shown = idx;
-        setActive(idx);
+      // Copy changes a little after the film does, once the new object has started to take shape.
+      let textIdx = 0;
+      clips.forEach((c, i) => {
+        if (y >= c.start + (i ? 0.3 : 0) * (c.end - c.start)) textIdx = i;
+      });
+      if (textIdx !== shown) {
+        shown = textIdx;
+        setActive(textIdx);
       }
+      // As the film scrolls away, its copy fades out instead of being covered by the next section.
+      root!.style.setProperty("--ss-exit", String(clamp((y - (total - 1.25 * vh)) / (0.3 * vh))));
       root!.style.setProperty("--ss-progress", String(clamp(y / Math.max(total - vh, 1))));
     }
 

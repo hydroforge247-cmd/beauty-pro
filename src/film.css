@@ -37,9 +37,9 @@
 }
 .scroll-scrub__route-button:focus-visible { outline: 2px solid var(--ss-accent); outline-offset: 3px; }
 
-.scroll-scrub__story { position: relative; z-index: 3; margin-top: -100vh; margin-top: -100dvh; pointer-events: none; }
-.scroll-scrub__chapter { position: relative; min-height: calc(var(--ss-len, 1) * 100vh); min-height: calc(var(--ss-len, 1) * 100dvh); }
-.scroll-scrub__copies { position: absolute; inset: 0; z-index: 3; }
+.scroll-scrub__story { position: relative; z-index: 3; margin-top: -100vh; margin-top: -100svh; pointer-events: none; }
+.scroll-scrub__chapter { position: relative; min-height: calc(var(--ss-len, 1) * 100vh); min-height: calc(var(--ss-len, 1) * 100svh); /* svh: phone address bar sliding must not move chapter positions */ }
+.scroll-scrub__copies { position: absolute; inset: 0; z-index: 3; opacity: calc(1 - var(--ss-exit, 0)); }
 /* Each chapter's copy is pinned on the stage and cross-fades in as its chapter starts. */
 .scroll-scrub__chapter-pin {
   position: absolute; inset: 0; display: flex; align-items: center;

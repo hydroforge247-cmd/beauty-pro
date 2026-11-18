@@ -65,6 +65,6 @@ export const scrollScrubScenes: ScrollScrubScene[] = [
     body: "Ionic foot detox, paraffin wax, pedicures and massages for when you need an hour off.",
     tags: ["Foot detox R299", "Hot stone massage R399"],
     cta: [{ label: "Book on WhatsApp", href: WHATSAPP, external: true }, { label: "Specials", href: "#specials" }],
-    scroll: 2.2,
+    scroll: 2.8,
   },
 ];

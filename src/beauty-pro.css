@@ -52,7 +52,9 @@ body { background: var(--bg); }
 /* ---------- the film: copy beside the object on desktop, above it on phones ---------- */
 .bp .scroll-scrub, .bp .scroll-scrub__stage { background: #F5DCE2; }
 .bp .scroll-scrub__kicker { color: var(--ss-accent); letter-spacing: .16em; }
-.bp .scroll-scrub__title { font-weight: 500; letter-spacing: -.035em; line-height: .95; max-width: 11ch; font-size: clamp(3rem, 6.4vw, 7rem); }
+.bp .scroll-scrub__title { font-weight: 500; letter-spacing: -.035em; line-height: .95; max-width: 11ch; font-size: clamp(2.6rem, min(6.4vw, 10.5vh), 7rem); }
+/* keep every chapter clear of the fixed header, even on short laptop screens */
+.bp .scroll-scrub__chapter-pin { padding-top: max(7rem, 12vh); padding-bottom: 4.5rem; }
 .bp .scroll-scrub__body { color: var(--ss-muted); max-width: 36ch; }
 .bp .scroll-scrub__tags li { border-radius: 999px; border-color: color-mix(in srgb, var(--ss-ink) 22%, transparent); background: rgb(255 255 255 / .45); padding: .45rem .9rem; }
 .bp .scroll-scrub__copy { width: min(36rem, 44vw); }
@@ -85,7 +87,7 @@ body { background: var(--bg); }
   .bp .scroll-scrub__tags { margin-top: 1rem; }
   .bp .scroll-scrub__tags li { font-size: .78rem; }
   .bp-film-cta { position: absolute; left: 22px; right: 22px; bottom: calc(24px + env(safe-area-inset-bottom)); margin: 0; flex-wrap: nowrap; }
-  .bp-film-cta a { flex: 1; text-align: center; padding-inline: 12px; }
+  .bp-film-cta a { flex: 1; text-align: center; padding: 14px 8px; font-size: .88rem; white-space: nowrap; }
   /* soft blush veil behind the copy only; the object below stays crisp */
   .bp .scroll-scrub__stage::after {
     content: ""; position: absolute; inset: 0 0 auto 0; height: 50%; z-index: 2; pointer-events: none;
