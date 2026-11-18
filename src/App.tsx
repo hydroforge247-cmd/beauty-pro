@@ -1,9 +1,13 @@
 import { useEffect, useState } from "react";
+import { ScrollScrub } from "./film";
 import { CinemaHero } from "./cinema";
 import { Booking } from "@/components/booking";
 import { SpecialsToast } from "@/components/specials-toast";
 import { MENU, SPECIALS, TRAINING } from "@/beauty-pro-data";
-import { film } from "./scenes";
+import { film, scrollScrubScenes, scrollScrubTheme } from "./scenes";
+
+// Phones get the autoplay film; desktop keeps scrolling through it (user, 18 Nov). Same test the scroll film uses for phones.
+const ON_PHONE = typeof window !== "undefined" && window.matchMedia("(hover: none) and (pointer: coarse), (max-width: 860px)").matches;
 
 const PHONE = "27683460928";
 const PHONE_DISPLAY = "068 346 0928";
@@ -44,7 +48,7 @@ function ThemeSwitch() {
 function useAfterFilm() {
   const [after, setAfter] = useState(false);
   useEffect(() => {
-    const film = document.querySelector(".cine");
+    const film = document.querySelector(".cine, .scroll-scrub");
     if (!film) return;
     const io = new IntersectionObserver(([e]) => setAfter(!e.isIntersecting && e.boundingClientRect.top < 0));
     io.observe(film);
@@ -70,7 +74,7 @@ export default function App() {
         <a className="bp-nav-book" href="#book">Book now</a>
       </header>
 
-      <CinemaHero phone={film.phone} wide={film.wide} cues={film.cues} brand="Beauty Pro" id="studio" />
+      {ON_PHONE ? <CinemaHero film={film.phone} cues={film.cues} brand="Beauty Pro" id="studio" /> : <ScrollScrub scenes={scrollScrubScenes} theme={scrollScrubTheme} />}
 
       <section className="bp-specials" id="specials" aria-labelledby="specials-title">
         <div className="bp-specials-pin">

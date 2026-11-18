@@ -69,10 +69,9 @@ export const scrollScrubScenes: ScrollScrubScene[] = [
   },
 ];
 
-/** Autoplay film (cinema.tsx): the four chapters joined and slowed 1.5x; `at` = second the words change. */
+/** Phone autoplay film (cinema.tsx): the four chapters joined and slowed 1.5x; `at` = second the words change. */
 const B = import.meta.env.BASE_URL;
 export const film = {
   phone: { src: `${B}assets/film/beauty-m.mp4`, poster: `${B}assets/film/beauty-m.jpg` },
-  wide: { src: `${B}assets/film/beauty-d.mp4`, poster: `${B}assets/film/beauty-d.jpg` },
   cues: scrollScrubScenes.map((s, i) => ({ at: i * 7.5, kicker: s.kicker, title: s.title, body: s.body, cta: s.cta })),
 };
