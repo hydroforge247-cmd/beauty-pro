@@ -39,11 +39,16 @@
 
 .scroll-scrub__story { position: relative; z-index: 3; margin-top: -100vh; margin-top: -100dvh; pointer-events: none; }
 .scroll-scrub__chapter { position: relative; min-height: calc(var(--ss-len, 1) * 100vh); min-height: calc(var(--ss-len, 1) * 100dvh); }
+.scroll-scrub__copies { position: absolute; inset: 0; z-index: 3; }
+/* Each chapter's copy is pinned on the stage and cross-fades in as its chapter starts. */
 .scroll-scrub__chapter-pin {
-  position: sticky; top: 0; display: flex; align-items: center; min-height: 100vh; min-height: 100dvh;
+  position: absolute; inset: 0; display: flex; align-items: center;
   padding: clamp(5rem, 9vw, 8rem) clamp(1.25rem, 6vw, 6rem); pointer-events: none;
+  opacity: 0; transform: translateY(28px); transition: opacity .5s ease, transform .7s cubic-bezier(.2,.8,.2,1), visibility 0s linear .5s; visibility: hidden;
 }
-.scroll-scrub__chapter[data-align="right"] .scroll-scrub__chapter-pin { justify-content: flex-end; }
+.scroll-scrub__chapter-pin[data-on="true"] { opacity: 1; transform: none; visibility: visible; transition-delay: .12s, .12s, 0s; }
+.scroll-scrub__chapter-pin[data-align="right"] { justify-content: flex-end; }
+@media (prefers-reduced-motion: reduce) { .scroll-scrub__chapter-pin { transition: none; transform: none; } }
 .scroll-scrub__copy { position: relative; width: min(40rem, 48vw); pointer-events: auto; }
 .scroll-scrub__kicker {
   max-width: 30ch; margin: 0 0 1rem; color: var(--ss-accent); font-size: .8rem; font-weight: 700;
@@ -67,7 +72,7 @@
   .scroll-scrub__route { right: .75rem; left: .75rem; justify-content: flex-start; overflow-x: auto; scrollbar-width: none; }
   .scroll-scrub__route-button { flex: 0 0 auto; }
   .scroll-scrub__chapter-pin,
-  .scroll-scrub__chapter[data-align="right"] .scroll-scrub__chapter-pin {
+  .scroll-scrub__chapter-pin[data-align="right"] {
     align-items: flex-end; justify-content: flex-start;
     padding: 6.5rem 1.25rem calc(4rem + env(safe-area-inset-bottom)) 1.25rem;
   }

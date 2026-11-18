@@ -22,6 +22,8 @@ export interface ScrollScrubScene {
   body: string;
   kicker?: string;
   tags?: string[];
+  /** Buttons under the chapter copy (phones pin them to the bottom of the screen). */
+  cta?: { label: string; href: string; external?: boolean }[];
   align?: "left" | "right";
   /** Viewport heights of scrolling this chapter takes. */
   scroll?: number;
@@ -428,6 +430,34 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
             </figure>
           ))}
         </div>
+        <div className="scroll-scrub__copies">
+          {scenes.map((s, i) => {
+            const Heading = i === 0 ? "h1" : "h2";
+            return (
+              <article key={s.id} className="scroll-scrub__chapter-pin" data-align={s.align ?? "left"} data-on={active === i} aria-hidden={active !== i}>
+                <div className="scroll-scrub__copy">
+                  {s.kicker ? <p className="scroll-scrub__kicker">{s.kicker}</p> : null}
+                  <Heading className="scroll-scrub__title">{s.title}</Heading>
+                  <p className="scroll-scrub__body">{s.body}</p>
+                  {s.tags?.length ? (
+                    <ul className="scroll-scrub__tags">
+                      {s.tags.map((t) => (
+                        <li key={t}>{t}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                  {s.cta?.length ? (
+                    <div className="bp-film-cta">
+                      {s.cta.map((c) => (
+                        <a key={c.label} href={c.href} tabIndex={active === i ? 0 : -1} {...(c.external ? { target: "_blank", rel: "noopener" } : {})}>{c.label}</a>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </article>
+            );
+          })}
+        </div>
         <div className="scroll-scrub__progress" aria-hidden="true">
           <span />
         </div>
@@ -446,35 +476,11 @@ export function ScrollScrub({ scenes, theme }: { scenes: ScrollScrubScene[]; the
         </nav>
       </div>
 
-      <div className="scroll-scrub__story">
-        {scenes.map((s, i) => {
-          const Heading = i === 0 ? "h1" : "h2";
-          return (
-            <article
-              key={s.id}
-              id={s.id}
-              className="scroll-scrub__chapter"
-              data-align={s.align ?? "left"}
-              data-film-band=""
-              style={{ "--ss-len": s.scroll ?? 1 } as CSSProperties}
-            >
-              <div className="scroll-scrub__chapter-pin">
-                <div className="scroll-scrub__copy">
-                  {s.kicker ? <p className="scroll-scrub__kicker">{s.kicker}</p> : null}
-                  <Heading className="scroll-scrub__title">{s.title}</Heading>
-                  <p className="scroll-scrub__body">{s.body}</p>
-                  {s.tags?.length ? (
-                    <ul className="scroll-scrub__tags">
-                      {s.tags.map((t) => (
-                        <li key={t}>{t}</li>
-                      ))}
-                    </ul>
-                  ) : null}
-                </div>
-              </div>
-            </article>
-          );
-        })}
+      {/* Spacers give each chapter its scroll length and its #id; the copy itself lives on the pinned stage. */}
+      <div className="scroll-scrub__story" aria-hidden="false">
+        {scenes.map((s) => (
+          <div key={s.id} id={s.id} className="scroll-scrub__chapter" data-film-band="" style={{ "--ss-len": s.scroll ?? 1 } as CSSProperties} />
+        ))}
       </div>
     </section>
   );

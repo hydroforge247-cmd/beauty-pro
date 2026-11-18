@@ -1,4 +1,4 @@
-
+import { useEffect, useState } from "react";
 import { ScrollScrub } from "./film";
 import { Booking } from "@/components/booking";
 import { SpecialsToast } from "@/components/specials-toast";
@@ -21,7 +21,40 @@ const HOURS = [
   { day: "Sunday", time: "Closed" },
 ];
 
+function ThemeSwitch() {
+  const [dark, setDark] = useState(() => document.documentElement.dataset.theme === "dark");
+  const flip = () => {
+    const next = dark ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("bp-theme", next); } catch { /* private mode: still switches for this visit */ }
+    setDark(!dark);
+  };
+  return (
+    <button type="button" className="bp-theme" onClick={flip} aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}>
+      {dark ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" /></svg>
+      )}
+    </button>
+  );
+}
+
+/** The phone Book button stays hidden while the film shows its own buttons. */
+function useAfterFilm() {
+  const [after, setAfter] = useState(false);
+  useEffect(() => {
+    const film = document.querySelector(".scroll-scrub");
+    if (!film) return;
+    const io = new IntersectionObserver(([e]) => setAfter(!e.isIntersecting && e.boundingClientRect.top < 0));
+    io.observe(film);
+    return () => io.disconnect();
+  }, []);
+  return after;
+}
+
 export default function App() {
+  const afterFilm = useAfterFilm();
   return (
     <main className="bp">
       <header className="bp-nav">
@@ -33,6 +66,7 @@ export default function App() {
           <a href="#specials">Specials</a>
           <a href="#visit">Visit</a>
         </nav>
+        <ThemeSwitch />
         <a className="bp-nav-book" href="#book">Book now</a>
       </header>
 
@@ -179,7 +213,7 @@ export default function App() {
 
       <SpecialsToast />
 
-      <a className="bp-float" href="#book" aria-label="Book an appointment">Book</a>
+      <a className="bp-float" data-hidden={!afterFilm} href="#book" aria-label="Book an appointment">Book</a>
     </main>
   );
 }

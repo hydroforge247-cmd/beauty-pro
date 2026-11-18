@@ -1,22 +1,19 @@
 /**
- * Beauty Pro journey: ONE continuous studio walk-through film, cut into four
- * consecutive segments so each chapter owns a stretch of it. Seams are the
- * film's own consecutive frames, and every poster is its segment's first frame.
+ * Beauty Pro film (v7, 18 Nov 2026): one object that keeps changing as you scroll —
+ * polish bottle → painted nails → lashes → serum drop → spa tray. Four Higgsfield clips joined
+ * on shared frames (film-src/), each with its own portrait version for phones.
  */
-import type {
-  ScrollScrubScene,
-  ScrollScrubTheme,
-} from "./film";
+import type { ScrollScrubScene, ScrollScrubTheme } from "./film";
 
 export const scrollScrubTheme: ScrollScrubTheme = {
-  accent: "#E8577E",
-  background: "#2A0E1C",
-  ink: "#FFF1F4",
-  muted: "#E7B9C6",
+  accent: "#B8325A",
+  background: "#F5DCE2",
+  ink: "#2E1220",
+  muted: "#6E4253",
 };
 
 const seg = (n: number) => ({
-  frames: `/assets/world/frames/0${n}.bin`, // phone still-frame pack, one per segment
+  frames: `/assets/world/frames/0${n}.bin`,
   liteFrames: `/assets/world/frames/0${n}-lite.bin`,
   liteClip: `/assets/world/studio-0${n}-lite.mp4`,
   clip: `/assets/world/studio-0${n}.mp4`,
@@ -25,47 +22,49 @@ const seg = (n: number) => ({
   mobilePoster: `/assets/world/studio-0${n}-mobile-poster.jpg`,
 });
 
+const WHATSAPP = "https://wa.me/27683460928?text=" + encodeURIComponent("Hi Beauty Pro, I'd like to book an appointment.");
+
 export const scrollScrubScenes: ScrollScrubScene[] = [
   {
     ...seg(1),
     id: "studio",
-    label: "Studio",
-    kicker: "Salon and training academy, Vanderbijlpark",
+    label: "Nails",
+    kicker: "Beauty Pro · Vanderbijlpark",
     title: "Beauty, done properly.",
-    body: "Nails, lashes, permanent makeup, skin and body treatments at 136A Rossini Blvd. Rated 4.9 from 699 reviews.",
-    tags: ["Nails", "Lashes", "Skin", "Body"],
-    scroll: 1.4,
+    body: "Nails, lashes, skin and body treatments at 136A Rossini Blvd. Rated 4.9 from 699 reviews.",
+    tags: ["Acrylic from R300", "Polygel from R299"],
+    cta: [{ label: "Book now", href: "#book" }, { label: "See the menu", href: "#menu" }],
+    scroll: 1.5,
   },
   {
     ...seg(2),
-    id: "nails",
-    label: "Nails",
-    kicker: "Nails",
-    title: "Nails that turn heads.",
-    body: "Acrylic, gel and polygel sets, overlays and toes, by qualified nail therapists.",
-    tags: ["Acrylic from R300", "Polygel from R299"],
-    align: "right",
-    scroll: 1.2,
+    id: "lashes",
+    label: "Lashes",
+    kicker: "Lashes and brows",
+    title: "Lashes that flutter.",
+    body: "Classic, volume and hybrid sets, lash fills, brow lamination and ombre brows.",
+    tags: ["Lashes from R400"],
+    scroll: 1.3,
   },
   {
     ...seg(3),
-    id: "lashes-skin",
-    label: "Lashes and skin",
-    kicker: "Lashes, brows and skin",
-    title: "Lashes, brows and skin.",
-    body: "Classic to hybrid lashes, ombre brows, HIFU lifts and plasma, all under one roof.",
-    tags: ["Lashes from R400", "HIFU from R699"],
-    scroll: 1.2,
+    id: "skin",
+    label: "Skin",
+    kicker: "Skin",
+    title: "Skin that glows.",
+    body: "HIFU lifts, plasma, mesotherapy and RF facials.",
+    tags: ["HIFU from R699"],
+    scroll: 1.3,
   },
   {
     ...seg(4),
     id: "unwind",
     label: "Unwind",
-    kicker: "Feet and massage",
-    title: "Then put your feet up.",
+    kicker: "Feet, body and massage",
+    title: "Your chair is waiting.",
     body: "Ionic foot detox, paraffin wax, pedicures and massages for when you need an hour off.",
-    tags: ["Foot detox R299", "Massage from R249"],
-    align: "right",
-    scroll: 1.4,
+    tags: ["Foot detox R299", "Hot stone massage R399"],
+    cta: [{ label: "Book on WhatsApp", href: WHATSAPP, external: true }, { label: "Specials", href: "#specials" }],
+    scroll: 2.2,
   },
 ];
