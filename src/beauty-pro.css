@@ -56,7 +56,7 @@ body { background: var(--bg); }
 /* keep every chapter clear of the fixed header, even on short laptop screens */
 .bp .scroll-scrub__chapter-pin { padding-top: max(7rem, 12vh); padding-bottom: 4.5rem; }
 .bp .scroll-scrub__body { color: var(--ss-muted); max-width: 36ch; }
-.bp .scroll-scrub__tags li { border-radius: 999px; border-color: color-mix(in srgb, var(--ss-ink) 22%, transparent); background: rgb(255 255 255 / .45); padding: .45rem .9rem; }
+.bp .scroll-scrub__tags li { border-radius: 999px; border: 1.5px solid rgb(255 255 255 / .9); background: rgb(255 255 255 / .82); color: #2E1220; font-weight: 700; padding: .5rem .95rem; box-shadow: 0 6px 18px -10px rgb(46 18 32 / .45); }
 .bp .scroll-scrub__copy { width: min(36rem, 44vw); }
 .bp .scroll-scrub__route { top: auto; bottom: clamp(1rem, 3vw, 1.75rem); }
 .bp-film-cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 1.75rem; }
@@ -72,7 +72,7 @@ body { background: var(--bg); }
 [data-theme="dark"] .bp .scroll-scrub { --ss-ink: #FFF1F4 !important; --ss-muted: #EBC6D3 !important; --ss-accent: #F48FAE !important; }
 [data-theme="dark"] .bp .scroll-scrub, [data-theme="dark"] .bp .scroll-scrub__stage { background: #1A0A12; }
 [data-theme="dark"] .bp .scroll-scrub__media { filter: brightness(.5) saturate(1.15) contrast(1.05); }
-[data-theme="dark"] .bp .scroll-scrub__tags li { background: rgb(26 10 18 / .45); }
+[data-theme="dark"] .bp .scroll-scrub__tags li { background: rgb(26 10 18 / .7); border-color: rgb(244 143 174 / .55); color: #FFF1F4; }
 [data-theme="dark"] .bp-film-cta a { background: #F48FAE; color: #1A0910; }
 [data-theme="dark"] .bp-film-cta a + a { background: rgb(26 10 18 / .4); color: #FFF1F4; }
 
@@ -85,7 +85,7 @@ body { background: var(--bg); }
   .bp .scroll-scrub__title { font-size: clamp(2.5rem, 12.5vw, 3.6rem); max-width: 12ch; }
   .bp .scroll-scrub__body { font-size: .98rem; margin-top: .9rem; max-width: 32ch; }
   .bp .scroll-scrub__tags { margin-top: 1rem; }
-  .bp .scroll-scrub__tags li { font-size: .78rem; }
+  .bp .scroll-scrub__tags li { font-size: .85rem; }
   .bp-film-cta { position: absolute; left: 22px; right: 22px; bottom: calc(24px + env(safe-area-inset-bottom)); margin: 0; flex-wrap: nowrap; }
   .bp-film-cta a { flex: 1; text-align: center; padding: 14px 8px; font-size: .88rem; white-space: nowrap; }
   /* soft blush veil behind the copy only; the object below stays crisp */
